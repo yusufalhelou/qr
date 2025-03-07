@@ -33,7 +33,7 @@
         }
 
         .search-box {
-            width: 100%;
+            width: 90%;
             background-color: #fee4cf;
             padding: 20px;
             border-radius: 10px;
@@ -73,7 +73,7 @@
             background-color: #fee4cf;
             border-radius: 10px;
             min-height: 200px;
-            width: 100%;
+            width: 90%;
             position: relative;
             box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
         }
@@ -117,122 +117,101 @@
         <div class="loading" id="loading">جاري البحث...</div>
     </div>
 
-    <script>
-        let isFetching = false;
-        const CORS_PROXY = 'https://api.allorigins.win/raw?url=';
-        const SHEET_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vTaZGtpCsdR5nx7OG3lLkzpSM8rmQ0eMCTySmDVhUlYu8GLKXHfAtUpHgX747WYnFYCcL87sdHh6kgV/pubhtml';
+  <script>
+    let isFetching = false;
+    const CORS_PROXY = 'https://api.allorigins.win/raw?url=';
+    const SHEET_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vTaZGtpCsdR5nx7OG3lLkzpSM8rmQ0eMCTySmDVhUlYu8GLKXHfAtUpHgX747WYnFYCcL87sdHh6kgV/pubhtml';
+    const PHONE_LENGTH = 11; // Set required phone number length
 
-        async function fetchSheetData() {
-            const loading = document.getElementById('loading');
-            try {
-                loading.style.display = 'block';
-                const response = await fetch(CORS_PROXY + encodeURIComponent(SHEET_URL));
-                
-                if (!response.ok) {
-                    throw new Error(`HTTP error! Status: ${response.status}`);
-                }
-
-                const html = await response.text();
-                return new DOMParser().parseFromString(html, 'text/html');
-            } catch (error) {
-                console.error('Error fetching data:', error);
-                showError('خطأ في تحميل البيانات');
-                return null;
-            } finally {
-                loading.style.display = 'none';
+    async function fetchSheetData() {
+        const loading = document.getElementById('loading');
+        try {
+            loading.style.display = 'block';
+            const response = await fetch(CORS_PROXY + encodeURIComponent(SHEET_URL));
+            
+            if (!response.ok) {
+                throw new Error(`HTTP error! Status: ${response.status}`);
             }
+
+            const html = await response.text();
+            return new DOMParser().parseFromString(html, 'text/html');
+        } catch (error) {
+            console.error('Error fetching data:', error);
+            showError('خطأ في تحميل البيانات');
+            return null;
+        } finally {
+            loading.style.display = 'none';
+        }
+    }
+
+    async function findQRCode() {
+        if (isFetching) return;
+        isFetching = true;
+
+        const phoneNumber = document.getElementById('phoneInput').value.trim();
+        const resultDiv = document.getElementById('result');
+        resultDiv.innerHTML = '';
+
+        // Validate phone number length
+        if (!phoneNumber || phoneNumber.length !== PHONE_LENGTH) {
+            showError(`الرجاء إدخال رقم هاتف كامل مكون من ${PHONE_LENGTH} أرقام`);
+            isFetching = false;
+            return;
         }
 
-        async function findQRCode() {
-            if (isFetching) return;
-            isFetching = true;
+        try {
+            const doc = await fetchSheetData();
+            if (!doc) return;
 
-            const phoneNumber = document.getElementById('phoneInput').value.trim();
-            const resultDiv = document.getElementById('result');
-            resultDiv.innerHTML = '';
-
-            if (!phoneNumber) {
-                showError('الرجاء إدخال رقم هاتف');
-                isFetching = false;
+            // Find the table (Google Sheets uses 'waffle' class)
+            const table = doc.querySelector('table.waffle');
+            if (!table) {
+                showError('خطأ في تنسيق البيانات');
                 return;
             }
 
-            try {
-                const doc = await fetchSheetData();
-                if (!doc) return;
+            const rows = table.querySelectorAll('tr');
+            let found = false;
 
-                // Find the table (Google Sheets uses 'waffle' class)
-                const table = doc.querySelector('table.waffle');
-                if (!table) {
-                    showError('خطأ في تنسيق البيانات');
-                    return;
-                }
-
-                // Get all rows
-                const rows = table.querySelectorAll('tr');
-                console.log("Total Rows:", rows.length); // Debugging
-
-                // Headers are in row 1 (index 1)
-                const headerCells = rows[1].querySelectorAll('td');
-                console.log("Headers:", Array.from(headerCells).map(cell => cell.textContent.trim())); // Debugging
-
-                // Find column indexes
-                let phoneColumn = -1;
-                let qrColumn = -1;
-
-                headerCells.forEach((cell, index) => {
-                    const text = cell.textContent.trim();
-                    if (text === 'Phone Number') phoneColumn = index;
-                    if (text === 'QR Code') qrColumn = index;
-                });
-
-                if (phoneColumn === -1 || qrColumn === -1) {
-                    showError('خطأ في تنسيق الأعمدة');
-                    return;
-                }
-
-                // Search through data rows (starting from row 3)
-                let found = false;
-                for (let i = 3; i < rows.length; i++) {
-                    const cells = rows[i].querySelectorAll('td');
-                    if (cells.length > Math.max(phoneColumn, qrColumn)) {
-                        const currentPhone = cells[phoneColumn].textContent.trim();
-                        
-                        if (currentPhone === phoneNumber) {
-                            const qrCodeImg = cells[qrColumn].querySelector('img');
-                            if (qrCodeImg?.src) {
-                                resultDiv.innerHTML = `
-                                    <img class="qrcode-img" src="${qrCodeImg.src}" alt="QR Code">
-                                    <p style="color: #6B313F; margin-top: 15px;">تم العثور على الرمز!</p>
-                                `;
-                                found = true;
-                                break;
-                            }
-                        }
+            rows.forEach((row, index) => {
+                if (index === 0) return; // Skip header row
+                const cells = row.querySelectorAll('td');
+                const currentPhone = cells[0]?.textContent.trim();
+                
+                if (currentPhone === phoneNumber) {
+                    const qrCodeImg = cells[1]?.querySelector('img');
+                    if (qrCodeImg?.src) {
+                        resultDiv.innerHTML = `
+                            <img class="qrcode-img" src="${qrCodeImg.src}" alt="QR Code">
+                            <p style="color: #6B313F; margin-top: 15px;">تم العثور على الرمز!</p>
+                        `;
+                        found = true;
                     }
                 }
+            });
 
-                if (!found) {
-                    showError('غير مسجل');
-                }
-
-            } catch (error) {
-                console.error('Error:', error);
-                showError('حدث خطأ أثناء البحث');
-            } finally {
-                isFetching = false;
+            if (!found) {
+                showError('غير مسجل');
             }
-        }
 
-        function showError(message) {
-            const resultDiv = document.getElementById('result');
-            resultDiv.innerHTML = `<p class="error">${message}</p>`;
+        } catch (error) {
+            console.error('Error:', error);
+            showError('حدث خطأ أثناء البحث');
+        } finally {
+            isFetching = false;
         }
+    }
 
-        // Handle Enter key
-        document.getElementById('phoneInput').addEventListener('keypress', (e) => {
-            if (e.key === 'Enter') findQRCode();
-        });
-    </script>
+    function showError(message) {
+        const resultDiv = document.getElementById('result');
+        resultDiv.innerHTML = `<p class="error">${message}</p>`;
+    }
+
+    // Handle Enter key
+    document.getElementById('phoneInput').addEventListener('keypress', (e) => {
+        if (e.key === 'Enter') findQRCode();
+    });
+</script>
+
 </body>
 </html>
