@@ -176,13 +176,15 @@
 
                 // Detect columns
                 const headerCells = rows[0].querySelectorAll('th');
+                console.log("Headers:", Array.from(headerCells).map(cell => cell.textContent.trim())); // Debugging
+
                 let phoneColumn = -1;
                 let qrColumn = -1;
 
                 headerCells.forEach((cell, index) => {
                     const text = cell.textContent.trim();
-                    if (text === 'Phone Number') phoneColumn = index;
-                    if (text === 'QR Code') qrColumn = index;
+                    if (text === 'Phone Number') phoneColumn = index; // Update this to match your header
+                    if (text === 'QR Code') qrColumn = index; // Update this to match your header
                 });
 
                 if (phoneColumn === -1 || qrColumn === -1) {
