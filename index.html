@@ -102,27 +102,6 @@
             color: #213d53;
             z-index: 100;
         }
-
-        /* Football decoration from previous implementation */
-        .result-container::after {
-            content: '';
-            position: absolute;
-            bottom: -30px;
-            right: -30px;
-            width: 60px;
-            height: 60px;
-            background-image: url('https://em-content.zobj.net/source/apple/391/soccer-ball_26bd.png');
-            background-size: cover;
-            z-index: -1;
-            opacity: 0.8;
-        }
-
-        /* Animation from previous implementation */
-        @keyframes float {
-            0% { transform: translateY(0); }
-            50% { transform: translateY(-10px); }
-            100% { transform: translateY(0); }
-        }
     </style>
 </head>
 <body>
@@ -138,29 +117,25 @@
 
     <script>
         let isFetching = false;
-        const CORS_PROXY = 'https://cors-anywhere.herokuapp.com/';
+        const CORS_PROXY = 'https://api.allorigins.win/raw?url=';
         const SHEET_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vTaZGtpCsdR5nx7OG3lLkzpSM8rmQ0eMCTySmDVhUlYu8GLKXHfAtUpHgX747WYnFYCcL87sdHh6kgV/pubhtml';
 
         async function fetchSheetData() {
             const loading = document.getElementById('loading');
             try {
                 loading.style.display = 'block';
-                const response = await fetch(CORS_PROXY + SHEET_URL);
+                const response = await fetch(CORS_PROXY + encodeURIComponent(SHEET_URL));
+                
+                if (!response.ok) {
+                    throw new Error(`HTTP error! Status: ${response.status}`);
+                }
+
                 const html = await response.text();
+                console.log("HTML Content:", html.substring(0, 500)); // Debugging
                 return new DOMParser().parseFromString(html, 'text/html');
-
-
-
-
-
-
-
-
-
-
-
             } catch (error) {
                 console.error('Error fetching data:', error);
+                showError('خطأ في تحميل البيانات');
                 return null;
             } finally {
                 loading.style.display = 'none';
@@ -183,20 +158,17 @@
 
             try {
                 const doc = await fetchSheetData();
-                if (!doc) {
-                    showError('خطأ في تحميل البيانات');
-                    return;
-                }
+                if (!doc) return;
 
+                // Find the table (Google Sheets uses 'waffle' class)
                 const table = doc.querySelector('table.waffle');
-
-
                 if (!table) {
                     showError('خطأ في تنسيق البيانات');
                     return;
                 }
 
-                const rows = table.querySelectorAll('tbody tr');
+                // Get all rows
+                const rows = table.querySelectorAll('tr');
                 if (rows.length < 1) {
                     showError('لا توجد بيانات متاحة');
                     return;
@@ -244,8 +216,8 @@
                 }
 
             } catch (error) {
-                showError('حدث خطأ أثناء البحث');
                 console.error('Error:', error);
+                showError('حدث خطأ أثناء البحث');
             } finally {
                 isFetching = false;
             }
