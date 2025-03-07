@@ -138,7 +138,7 @@
 
     <script>
         let isFetching = false;
-        const CORS_PROXY = 'https://cors-anywhere.herokuapp.com/';
+        const CORS_PROXY = 'https://api.codetabs.com/v1/proxy?quest=';
         const SHEET_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vTaZGtpCsdR5nx7OG3lLkzpSM8rmQ0eMCTySmDVhUlYu8GLKXHfAtUpHgX747WYnFYCcL87sdHh6kgV/pubhtml';
 
         async function fetchSheetData() {
@@ -147,9 +147,20 @@
                 loading.style.display = 'block';
                 const response = await fetch(CORS_PROXY + SHEET_URL);
                 const html = await response.text();
-                return new DOMParser().parseFromString(html, 'text/html');
+                
+                console.log("Received HTML:", html.substring(0, 1000) + "...");
+                
+                const doc = new DOMParser().parseFromString(html, 'text/html');
+                
+                const tables = doc.getElementsByTagName('table');
+                if (tables.length === 0) {
+                    console.error('No tables found');
+                    return null;
+                }
+                
+                return doc;
             } catch (error) {
-                console.error('Error fetching data:', error);
+                console.error('Fetch error:', error);
                 return null;
             } finally {
                 loading.style.display = 'none';
@@ -177,54 +188,33 @@
                     return;
                 }
 
-                const table = doc.querySelector('table.waffle');
+                const tables = doc.getElementsByTagName('table');
+                const table = tables[0];
+                
                 if (!table) {
-                    showError('خطأ في تنسيق البيانات');
+                    showError('خطأ في تنسيق البيانات: لم يتم العثور على جدول');
                     return;
                 }
 
-                const rows = table.querySelectorAll('tbody tr');
-                if (rows.length < 1) {
-                    showError('لا توجد بيانات متاحة');
-                    return;
-                }
-
-                // Detect columns
-                const headerCells = rows[0].querySelectorAll('th');
-                let phoneColumn = -1;
-                let qrColumn = -1;
-
-                headerCells.forEach((cell, index) => {
-                    const text = cell.textContent.trim();
-                    if (text === 'Phone Number') phoneColumn = index;
-                    if (text === 'QR Code') qrColumn = index;
-                });
-
-                if (phoneColumn === -1 || qrColumn === -1) {
-                    showError('خطأ في تنسيق الأعمدة');
-                    return;
-                }
-
-                // Search through rows
+                const rows = table.querySelectorAll('tr');
                 let found = false;
-                for (let i = 1; i < rows.length; i++) {
-                    const cells = rows[i].querySelectorAll('td');
-                    if (cells.length > Math.max(phoneColumn, qrColumn)) {
-                        const currentPhone = cells[phoneColumn].textContent.trim();
-                        
-                        if (currentPhone === phoneNumber) {
-                            const qrCodeImg = cells[qrColumn].querySelector('img');
-                            if (qrCodeImg?.src) {
-                                resultDiv.innerHTML = `
-                                    <img class="qrcode-img" src="${qrCodeImg.src}" alt="QR Code">
-                                    <p style="color: #6B313F; margin-top: 15px;">تم العثور على الرمز!</p>
-                                `;
-                                found = true;
-                                break;
-                            }
+
+                rows.forEach((row, index) => {
+                    if (index === 0) return; // Skip header row
+                    const cells = row.querySelectorAll('td');
+                    const currentPhone = cells[0]?.textContent.trim();
+                    
+                    if (currentPhone === phoneNumber) {
+                        const qrCodeImg = cells[1]?.querySelector('img');
+                        if (qrCodeImg?.src) {
+                            resultDiv.innerHTML = `
+                                <img class="qrcode-img" src="${qrCodeImg.src}" alt="QR Code">
+                                <p style="color: #6B313F; margin-top: 15px;">تم العثور على الرمز!</p>
+                            `;
+                            found = true;
                         }
                     }
-                }
+                });
 
                 if (!found) {
                     showError('غير مسجل');
@@ -243,7 +233,6 @@
             resultDiv.innerHTML = `<p class="error">${message}</p>`;
         }
 
-        // Handle Enter key
         document.getElementById('phoneInput').addEventListener('keypress', (e) => {
             if (e.key === 'Enter') findQRCode();
         });
