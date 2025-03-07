@@ -1,0 +1,252 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>QR Code Lookup</title>
+    <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;700&display=swap" rel="stylesheet">
+    <style>
+        /* Reusing your existing CSS patterns */
+        body {
+            font-family: 'Cairo', sans-serif;
+            background-color: #e4e0d7;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            margin: 0;
+            padding: 20px;
+            min-height: 100vh;
+        }
+
+        .container {
+            max-width: 600px;
+            width: 90%;
+            text-align: center;
+            position: relative;
+            z-index: 1;
+        }
+
+        h1 {
+            color: #6B313F;
+            margin-bottom: 30px;
+        }
+
+        .search-box {
+            background-color: #fee4cf;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+            margin-bottom: 20px;
+        }
+
+        input {
+            padding: 12px;
+            margin: 10px;
+            width: 250px;
+            border-radius: 5px;
+            border: 2px solid #213d53;
+            font-family: 'Cairo', sans-serif;
+            font-size: 16px;
+        }
+
+        button {
+            padding: 12px 25px;
+            background-color: #213d53;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-family: 'Cairo', sans-serif;
+            font-size: 16px;
+            transition: transform 0.2s;
+        }
+
+        button:hover {
+            transform: scale(1.05);
+        }
+
+        .result-container {
+            margin-top: 20px;
+            padding: 20px;
+            background-color: #fee4cf;
+            border-radius: 10px;
+            min-height: 200px;
+            width: 100%;
+            position: relative;
+            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+        }
+
+        .qrcode-img {
+            max-width: 300px;
+            margin: 20px auto;
+            border: 3px solid #213d53;
+            border-radius: 10px;
+            padding: 10px;
+            background: white;
+        }
+
+        .error {
+            color: #6B313F;
+            font-weight: bold;
+            font-size: 1.1em;
+            padding: 20px;
+        }
+
+        .loading {
+            display: none;
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            font-size: 1.2em;
+            color: #213d53;
+            z-index: 100;
+        }
+
+        /* Football decoration from previous implementation */
+        .result-container::after {
+            content: '';
+            position: absolute;
+            bottom: -30px;
+            right: -30px;
+            width: 60px;
+            height: 60px;
+            background-image: url('https://em-content.zobj.net/source/apple/391/soccer-ball_26bd.png');
+            background-size: cover;
+            z-index: -1;
+            opacity: 0.8;
+        }
+
+        /* Animation from previous implementation */
+        @keyframes float {
+            0% { transform: translateY(0); }
+            50% { transform: translateY(-10px); }
+            100% { transform: translateY(0); }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🔍 البحث عن رمز الاستجابة السريعة</h1>
+        <div class="search-box">
+            <input type="tel" id="phoneInput" placeholder="أدخل رقم الهاتف...">
+            <button onclick="findQRCode()">ابحث</button>
+        </div>
+        <div class="result-container" id="result"></div>
+        <div class="loading" id="loading">جاري البحث...</div>
+    </div>
+
+    <script>
+        let isFetching = false;
+        const CORS_PROXY = 'https://cors-anywhere.herokuapp.com/';
+        const SHEET_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vTaZGtpCsdR5nx7OG3lLkzpSM8rmQ0eMCTySmDVhUlYu8GLKXHfAtUpHgX747WYnFYCcL87sdHh6kgV/pubhtml';
+
+        async function fetchSheetData() {
+            const loading = document.getElementById('loading');
+            try {
+                loading.style.display = 'block';
+                const response = await fetch(CORS_PROXY + SHEET_URL);
+                const html = await response.text();
+                return new DOMParser().parseFromString(html, 'text/html');
+            } catch (error) {
+                console.error('Error fetching data:', error);
+                return null;
+            } finally {
+                loading.style.display = 'none';
+            }
+        }
+
+        async function findQRCode() {
+            if (isFetching) return;
+            isFetching = true;
+            
+            const phoneNumber = document.getElementById('phoneInput').value.trim();
+            const resultDiv = document.getElementById('result');
+            resultDiv.innerHTML = '';
+
+            if (!phoneNumber) {
+                showError('الرجاء إدخال رقم هاتف');
+                isFetching = false;
+                return;
+            }
+
+            try {
+                const doc = await fetchSheetData();
+                if (!doc) {
+                    showError('خطأ في تحميل البيانات');
+                    return;
+                }
+
+                const table = doc.querySelector('table.waffle');
+                if (!table) {
+                    showError('خطأ في تنسيق البيانات');
+                    return;
+                }
+
+                const rows = table.querySelectorAll('tbody tr');
+                if (rows.length < 1) {
+                    showError('لا توجد بيانات متاحة');
+                    return;
+                }
+
+                // Detect columns
+                const headerCells = rows[0].querySelectorAll('th');
+                let phoneColumn = -1;
+                let qrColumn = -1;
+
+                headerCells.forEach((cell, index) => {
+                    const text = cell.textContent.trim();
+                    if (text === 'Phone Number') phoneColumn = index;
+                    if (text === 'QR Code') qrColumn = index;
+                });
+
+                if (phoneColumn === -1 || qrColumn === -1) {
+                    showError('خطأ في تنسيق الأعمدة');
+                    return;
+                }
+
+                // Search through rows
+                let found = false;
+                for (let i = 1; i < rows.length; i++) {
+                    const cells = rows[i].querySelectorAll('td');
+                    if (cells.length > Math.max(phoneColumn, qrColumn)) {
+                        const currentPhone = cells[phoneColumn].textContent.trim();
+                        
+                        if (currentPhone === phoneNumber) {
+                            const qrCodeImg = cells[qrColumn].querySelector('img');
+                            if (qrCodeImg?.src) {
+                                resultDiv.innerHTML = `
+                                    <img class="qrcode-img" src="${qrCodeImg.src}" alt="QR Code">
+                                    <p style="color: #6B313F; margin-top: 15px;">تم العثور على الرمز!</p>
+                                `;
+                                found = true;
+                                break;
+                            }
+                        }
+                    }
+                }
+
+                if (!found) {
+                    showError('غير مسجل');
+                }
+
+            } catch (error) {
+                showError('حدث خطأ أثناء البحث');
+                console.error('Error:', error);
+            } finally {
+                isFetching = false;
+            }
+        }
+
+        function showError(message) {
+            const resultDiv = document.getElementById('result');
+            resultDiv.innerHTML = `<p class="error">${message}</p>`;
+        }
+
+        // Handle Enter key
+        document.getElementById('phoneInput').addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') findQRCode();
+        });
+    </script>
+</body>
+</html>
