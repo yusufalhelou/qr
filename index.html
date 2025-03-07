@@ -6,103 +6,7 @@
     <title>QR Code Lookup</title>
     <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;700&display=swap" rel="stylesheet">
     <style>
-        /* Reusing your existing CSS patterns */
         /* CSS remains the same as before */
-        body {
-            font-family: 'Cairo', sans-serif;
-            background-color: #e4e0d7;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            margin: 0;
-            padding: 20px;
-            min-height: 100vh;
-        }
-
-        .container {
-            max-width: 600px;
-            width: 90%;
-            text-align: center;
-            position: relative;
-            z-index: 1;
-        }
-
-        h1 {
-            color: #6B313F;
-            margin-bottom: 30px;
-        }
-
-        .search-box {
-            background-color: #fee4cf;
-            padding: 20px;
-            border-radius: 10px;
-            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
-            margin-bottom: 20px;
-        }
-
-        input {
-            padding: 12px;
-            margin: 10px;
-            width: 250px;
-            border-radius: 5px;
-            border: 2px solid #213d53;
-            font-family: 'Cairo', sans-serif;
-            font-size: 16px;
-        }
-
-        button {
-            padding: 12px 25px;
-            background-color: #213d53;
-            color: white;
-            border: none;
-            border-radius: 5px;
-            cursor: pointer;
-            font-family: 'Cairo', sans-serif;
-            font-size: 16px;
-            transition: transform 0.2s;
-        }
-
-        button:hover {
-            transform: scale(1.05);
-        }
-
-        .result-container {
-            margin-top: 20px;
-            padding: 20px;
-            background-color: #fee4cf;
-            border-radius: 10px;
-            min-height: 200px;
-            width: 100%;
-            position: relative;
-            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
-        }
-
-        .qrcode-img {
-            max-width: 300px;
-            margin: 20px auto;
-            border: 3px solid #213d53;
-            border-radius: 10px;
-            padding: 10px;
-            background: white;
-        }
-
-        .error {
-            color: #6B313F;
-            font-weight: bold;
-            font-size: 1.1em;
-            padding: 20px;
-        }
-
-        .loading {
-            display: none;
-            position: fixed;
-            top: 50%;
-            left: 50%;
-            transform: translate(-50%, -50%);
-            font-size: 1.2em;
-            color: #213d53;
-            z-index: 100;
-        }
     </style>
 </head>
 <body>
@@ -132,7 +36,6 @@
                 }
 
                 const html = await response.text();
-                console.log("HTML Content:", html.substring(0, 500)); // Debugging
                 return new DOMParser().parseFromString(html, 'text/html');
             } catch (error) {
                 console.error('Error fetching data:', error);
@@ -170,24 +73,20 @@
 
                 // Get all rows
                 const rows = table.querySelectorAll('tr');
-                console.log("Table Rows:", rows.length); // Debugging
+                console.log("Total Rows:", rows.length); // Debugging
 
-                // Debug each row
-                rows.forEach((row, index) => {
-                    console.log(`Row ${index}:`, row.innerHTML); // Debugging
-                });
-
-                // Detect columns
-                const headerCells = rows[0].querySelectorAll('th, td'); // Check both th and td
+                // Headers are in row 1 (index 1)
+                const headerCells = rows[1].querySelectorAll('td');
                 console.log("Headers:", Array.from(headerCells).map(cell => cell.textContent.trim())); // Debugging
 
+                // Find column indexes
                 let phoneColumn = -1;
                 let qrColumn = -1;
 
                 headerCells.forEach((cell, index) => {
                     const text = cell.textContent.trim();
-                    if (text === 'Phone Number') phoneColumn = index; // Update this to match your header
-                    if (text === 'QR Code') qrColumn = index; // Update this to match your header
+                    if (text === 'Phone Number') phoneColumn = index;
+                    if (text === 'QR Code') qrColumn = index;
                 });
 
                 if (phoneColumn === -1 || qrColumn === -1) {
@@ -195,9 +94,9 @@
                     return;
                 }
 
-                // Search through rows
+                // Search through data rows (starting from row 3)
                 let found = false;
-                for (let i = 1; i < rows.length; i++) {
+                for (let i = 3; i < rows.length; i++) {
                     const cells = rows[i].querySelectorAll('td');
                     if (cells.length > Math.max(phoneColumn, qrColumn)) {
                         const currentPhone = cells[phoneColumn].textContent.trim();
