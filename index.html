@@ -7,6 +7,7 @@
     <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;700&display=swap" rel="stylesheet">
     <style>
         /* Reusing your existing CSS patterns */
+        /* CSS remains the same as before */
         body {
             font-family: 'Cairo', sans-serif;
             background-color: #e4e0d7;
@@ -169,13 +170,15 @@
 
                 // Get all rows
                 const rows = table.querySelectorAll('tr');
-                if (rows.length < 1) {
-                    showError('لا توجد بيانات متاحة');
-                    return;
-                }
+                console.log("Table Rows:", rows.length); // Debugging
+
+                // Debug each row
+                rows.forEach((row, index) => {
+                    console.log(`Row ${index}:`, row.innerHTML); // Debugging
+                });
 
                 // Detect columns
-                const headerCells = rows[0].querySelectorAll('th');
+                const headerCells = rows[0].querySelectorAll('th, td'); // Check both th and td
                 console.log("Headers:", Array.from(headerCells).map(cell => cell.textContent.trim())); // Debugging
 
                 let phoneColumn = -1;
